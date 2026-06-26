@@ -1,0 +1,35 @@
+{
+    "1":{
+        "name":"Aldea de la Hoja",
+        "background":"Textures/fondo1.png",
+        "floor":"Textures/piso1.jpg",
+        "music":"Music/BgSound/music1.mp3",
+        "enemy":"Textures/enemigo1.png",
+        "tank":"Textures/tank1.png",
+        "spawn_rate":120,
+        "tank_probability":0.15,
+        "enemy_speed":1.0
+    },
+    "2":{
+        "name":"Valle Del Fin",
+        "background":"Textures/fondo2.jpg",
+        "floor":"Textures/piso2.jpg",
+        "music":"Music/BgSound/music2.mp3",
+        "enemy":"Textures/enemigo2.png",
+        "tank":"Textures/tank2.png",
+        "spawn_rate":90,
+        "tank_probability":0.20,
+        "enemy_speed":1.3
+    },
+    "3":{
+        "name":"Aldea de la Arena",
+        "background":"Textures/fondoo3.jpg",
+        "floor":"Textures/piso3.jpg",
+        "music":"Music/BgSound/music3.mp3",
+        "enemy":"Textures/enemigo3.png",
+        "tank":"Textures/tank3.png",
+        "spawn_rate":70,
+        "tank_probability":0.30,
+        "enemy_speed":1.7
+    }
+}
