@@ -1,10 +1,22 @@
+import os
 import pygame
 import random
 import math
 import sys
 
-# Inicializar Pygame
+# Forzar PulseAudio como driver de audio (WSL)
+os.environ.setdefault("SDL_AUDIODRIVER", "pulse")
+os.environ.setdefault("PULSE_SERVER", "unix:/mnt/wslg/PulseServer")
+
+# Inicializar Pygame y mixer de audio
 pygame.init()
+audio_disponible = True
+try:
+    pygame.mixer.init()
+    pygame.mixer.set_num_channels(16)
+except Exception as e:
+    print(f"Audio no disponible en este sistema: {e}")
+    audio_disponible = False
 
 # Constantes de la pantalla y el motor
 WIDTH, HEIGHT = 1000, 560
@@ -171,9 +183,29 @@ class Entity:
 
 # --- JUGADOR ---
 class Player(Entity):
+    jump_sound = None
+    shoot_sound = None
+
     def __init__(self):
         # Mantenemos el hitbox (caja de colisión) original de 30x50 para no alterar la física
         super().__init__(100, 100, 30, 50, 100)
+
+        # --- CARGA DE SONIDOS ---
+        if audio_disponible and Player.jump_sound is None:
+            try:
+                Player.jump_sound = pygame.mixer.Sound("salto.wav")
+                Player.jump_sound.set_volume(0.7)
+            except Exception as e:
+                print(f"Aviso: No se encontró salto.wav - {e}")
+                Player.jump_sound = False
+
+        if audio_disponible and Player.shoot_sound is None:
+            try:
+                Player.shoot_sound = pygame.mixer.Sound("kunai.wav")
+                Player.shoot_sound.set_volume(0.9)
+            except Exception as e:
+                print(f"Aviso: No se encontró kunai.wav - {e}")
+                Player.shoot_sound = False
         self.speed = 5
         self.jump_force = -12
         self.shoot_cooldown = 0
@@ -233,6 +265,8 @@ class Player(Entity):
         if (keys[pygame.K_w] or keys[pygame.K_UP]) and self.is_grounded:
             self.vy = self.jump_force
             create_explosion(self.x + self.width/2, self.y + self.height, GRAY_LIGHT, 5, particles_list)
+            if audio_disponible and Player.jump_sound:
+                Player.jump_sound.play()
 
         # Disparo
         if keys[pygame.K_SPACE] and self.shoot_cooldown <= 0:
@@ -241,6 +275,8 @@ class Player(Entity):
             by = self.y + 15
             direction = 1 if self.facing_right else -1
             bullets_list.append(Bullet(bx, by, direction, True))
+            if audio_disponible and Player.shoot_sound:
+                Player.shoot_sound.play()
             # Retroceso visual
             self.x += -2 if self.facing_right else 2
 
@@ -419,24 +455,26 @@ class Game:
         self.enemies = []
         self.bullets = []
         self.particles = []
+        self.music_volume = 0.7
+        self.sfx_volume = 0.7
 
         # --- NUEVO: CARGAR FONDO ---
         try:
             # .convert() acelera drásticamente el rendimiento al dibujar fondos grandes
-            img = pygame.image.load("fondo1.jpg").convert()
+            img = pygame.image.load("fondo1.png").convert()
             # Escalamos la imagen para que cubra exactamente toda la ventana
             self.bg_image = pygame.transform.scale(img, (WIDTH, HEIGHT))
         except Exception as e:
-            print(f"Aviso: No se pudo cargar fondo1.jpg: {e}")
+            print(f"Aviso: No se pudo cargar fondo1.png: {e}")
             self.bg_image = None
         
         # --- CARGAR PISO ---
         try:
-            piso_img = pygame.image.load("piso2.jpeg").convert_alpha()
+            piso_img = pygame.image.load("piso2.jpg").convert()
             # Lo escalamos: ancho de pantalla (800) y altura del suelo (60)
             self.floor_image = pygame.transform.scale(piso_img, (WIDTH, HEIGHT - GROUND_Y))
         except Exception as e:
-            print(f"Error cargando piso.jpeg: {e}")
+            print(f"Error cargando piso2.jpg: {e}")
             self.floor_image = None
 
     def reset(self):
@@ -449,6 +487,21 @@ class Game:
         self.frame_count = 0
         self.screen_shake = 0
         self.state = 'PLAYING'
+
+        # Reproducir música de fondo con volumen guardado
+        if audio_disponible:
+            try:
+                pygame.mixer.music.load("music1.mp3")
+                pygame.mixer.music.set_volume(self.music_volume)
+                pygame.mixer.music.play(-1)
+            except Exception as e:
+                print(f"Aviso: No se pudo cargar music1.mp3 - {e}")
+
+            # Aplicar volumen de efectos a los sonidos del jugador
+            if Player.jump_sound:
+                Player.jump_sound.set_volume(0.7 * self.sfx_volume)
+            if Player.shoot_sound:
+                Player.shoot_sound.set_volume(0.9 * self.sfx_volume)
 
     def update(self):
         if self.state != 'PLAYING':
@@ -604,18 +657,57 @@ class Game:
             render_surface.blit(overlay, (0,0))
             
             title = font_large.render("Camino Ninja", True, YELLOW)
-            render_surface.blit(title, (WIDTH//2 - title.get_width()//2, 100))
+            render_surface.blit(title, (WIDTH//2 - title.get_width()//2, 80))
             
             subtitle = font_med.render("MISIÓN: SOBREVIVIR", True, WHITE)
-            render_surface.blit(subtitle, (WIDTH//2 - subtitle.get_width()//2, 180))
+            render_surface.blit(subtitle, (WIDTH//2 - subtitle.get_width()//2, 150))
             
             controls = font_small.render("W A S D: Mover | ESPACIO: Disparar", True, GRAY_LIGHT)
-            render_surface.blit(controls, (WIDTH//2 - controls.get_width()//2, 250))
-            
+            render_surface.blit(controls, (WIDTH//2 - controls.get_width()//2, 210))
+
+            # --- BARRAS DE VOLUMEN (estilo acero como la vida) ---
+            bar_x = WIDTH // 2 - 106
+            bar_w = 212
+            bar_h = 32
+            inner_w = 180
+            inner_h = 20
+
+            # Música
+            vol_label = font_small.render("VOL. MÚSICA", True, WHITE)
+            render_surface.blit(vol_label, (bar_x, 260))
+            bx, by = bar_x, 278
+            pygame.draw.rect(render_surface, (70, 70, 75), (bx, by, bar_w, bar_h), border_radius=4)
+            pygame.draw.rect(render_surface, (30, 30, 35), (bx, by, bar_w, bar_h), 2, border_radius=4)
+            pygame.draw.circle(render_surface, (150, 150, 160), (bx + 8, by + 16), 3)
+            pygame.draw.circle(render_surface, (150, 150, 160), (bx + bar_w - 8, by + 16), 3)
+            pygame.draw.rect(render_surface, (20, 20, 20), (bx + 16, by + 6, inner_w, inner_h))
+            mw = int(self.music_volume * inner_w)
+            if mw > 0:
+                pygame.draw.rect(render_surface, (14, 165, 233), (bx + 16, by + 6, mw, inner_h))
+                pygame.draw.rect(render_surface, (56, 189, 248), (bx + 16, by + 6, mw, 6))
+
+            # Efectos
+            sfx_label = font_small.render("VOL. EFECTOS", True, WHITE)
+            render_surface.blit(sfx_label, (bar_x, 320))
+            bx2, by2 = bar_x, 338
+            pygame.draw.rect(render_surface, (70, 70, 75), (bx2, by2, bar_w, bar_h), border_radius=4)
+            pygame.draw.rect(render_surface, (30, 30, 35), (bx2, by2, bar_w, bar_h), 2, border_radius=4)
+            pygame.draw.circle(render_surface, (150, 150, 160), (bx2 + 8, by2 + 16), 3)
+            pygame.draw.circle(render_surface, (150, 150, 160), (bx2 + bar_w - 8, by2 + 16), 3)
+            pygame.draw.rect(render_surface, (20, 20, 20), (bx2 + 16, by2 + 6, inner_w, inner_h))
+            sw = int(self.sfx_volume * inner_w)
+            if sw > 0:
+                pygame.draw.rect(render_surface, (242, 107, 15), (bx2 + 16, by2 + 6, sw, inner_h))
+                pygame.draw.rect(render_surface, (255, 160, 60), (bx2 + 16, by2 + 6, sw, 6))
+
+            # Controles de volumen
+            vol_ctrl = font_small.render("W/S o ↑/↓: Música   A/D o ←/→: Efectos", True, GRAY_LIGHT)
+            render_surface.blit(vol_ctrl, (WIDTH//2 - vol_ctrl.get_width()//2, 390))
+
             # Botón parpadeante
             if (pygame.time.get_ticks() // 500) % 2 == 0:
                 start_txt = font_med.render("PRESIONA ESPACIO PARA INICIAR", True, YELLOW)
-                render_surface.blit(start_txt, (WIDTH//2 - start_txt.get_width()//2, 350))
+                render_surface.blit(start_txt, (WIDTH//2 - start_txt.get_width()//2, 440))
 
         elif self.state == 'GAMEOVER':
             overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -652,8 +744,23 @@ def main():
             
             # Controles de Menú
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    if game.state == 'START' or game.state == 'GAMEOVER':
+                if game.state == 'START':
+                    if event.key == pygame.K_SPACE:
+                        game.reset()
+                    elif event.key in (pygame.K_w, pygame.K_UP):
+                        game.music_volume = min(1.0, game.music_volume + 0.1)
+                        if audio_disponible:
+                            pygame.mixer.music.set_volume(game.music_volume)
+                    elif event.key in (pygame.K_s, pygame.K_DOWN):
+                        game.music_volume = max(0.0, game.music_volume - 0.1)
+                        if audio_disponible:
+                            pygame.mixer.music.set_volume(game.music_volume)
+                    elif event.key in (pygame.K_d, pygame.K_RIGHT):
+                        game.sfx_volume = min(1.0, game.sfx_volume + 0.1)
+                    elif event.key in (pygame.K_a, pygame.K_LEFT):
+                        game.sfx_volume = max(0.0, game.sfx_volume - 0.1)
+                elif game.state == 'GAMEOVER':
+                    if event.key == pygame.K_SPACE:
                         game.reset()
 
         # Lógica del juego
