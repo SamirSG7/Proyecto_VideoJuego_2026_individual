@@ -179,6 +179,8 @@ class Player(Entity):
         self.shoot_cooldown = 0
         self.invulnerable_timer = 0
         self.anim_frame = 0
+        self.chakra = 100
+        self.max_chakra = 100
 
         # --- SISTEMA DE SPRITES ---
         self.frames_right = []
@@ -577,6 +579,17 @@ class Game:
             if hp_width > 0:
                 pygame.draw.rect(render_surface, (242, 107, 15), (32, 62, hp_width, 20)) # Color naranja HP
                 pygame.draw.rect(render_surface, (255, 160, 60), (32, 62, hp_width, 6)) # Efecto de brillo
+                
+            # Barra de Chakra - Estilo Acero
+            pygame.draw.rect(render_surface, (70, 70, 75), (16, 96, 212, 32), border_radius=4) # Contenedor metalico
+            pygame.draw.rect(render_surface, (30, 30, 35), (16, 96, 212, 32), 2, border_radius=4) # Borde oscuro
+            pygame.draw.circle(render_surface, (150, 150, 160), (24, 112), 3) # Remache izquierdo
+            pygame.draw.circle(render_surface, (150, 150, 160), (220, 112), 3) # Remache derecho
+            pygame.draw.rect(render_surface, (20, 20, 20), (32, 102, 180, 20)) # Fondo oscuro barra
+            ch_width = int((self.player.chakra / self.player.max_chakra) * 180)
+            if ch_width > 0:
+                pygame.draw.rect(render_surface, (14, 165, 233), (32, 102, ch_width, 20)) # Color azul eléctrico CH
+                pygame.draw.rect(render_surface, (56, 189, 248), (32, 102, ch_width, 6)) # Efecto de brillo
                 
             # Arma
             weapon_surf1 = font_small.render("ARMA", True, WHITE)
