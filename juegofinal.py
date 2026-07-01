@@ -1,11 +1,22 @@
+import os
 import pygame
 import random
 import math
 import sys
 
+# Forzar PulseAudio como driver de audio (WSL)
+os.environ.setdefault("SDL_AUDIODRIVER", "pulse")
+os.environ.setdefault("PULSE_SERVER", "unix:/mnt/wslg/PulseServer")
+
 # Inicializar Pygame y el Mixer para la música
 pygame.init()
-pygame.mixer.init()
+audio_disponible = True
+try:
+    pygame.mixer.init()
+    pygame.mixer.set_num_channels(16)
+except Exception as e:
+    print(f"Audio no disponible en este sistema: {e}")
+    audio_disponible = False
 
 # Constantes de la pantalla y el motor
 WIDTH, HEIGHT = 1000, 560
@@ -158,6 +169,54 @@ class Bullet:
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
+# --- RASENGAN (HABILIDAD ESPECIAL) ---
+class Rasengan:
+    image = None
+    frames = []
+
+    def __init__(self, x, y, dir_x):
+        self.x = float(x)
+        self.y = float(y)
+        self.vx = dir_x * 12
+        self.width = 60
+        self.height = 60
+        self.damage = 300
+        self.active = True
+        self.anim_frame = 0
+
+        if not Rasengan.frames:
+            try:
+                sheet = pygame.image.load("rasengan.png").convert_alpha()
+                fw = sheet.get_width() // 2
+                fh = sheet.get_height()
+                for i in range(2):
+                    surf = pygame.Surface((fw, fh), pygame.SRCALPHA)
+                    surf.blit(sheet, (0, 0), (i * fw, 0, fw, fh))
+                    surf = pygame.transform.scale(surf, (self.width, self.height))
+                    Rasengan.frames.append(surf)
+                Rasengan.image = True
+            except Exception as e:
+                print(f"Error cargando rasengan.png: {e}")
+                Rasengan.image = False
+
+    def update(self):
+        self.x += self.vx
+        self.anim_frame += 0.2
+        if self.x < -200 or self.x > 2000:
+            self.active = False
+
+    def draw(self, surface, cam_x):
+        render_x = int(self.x - cam_x)
+        render_y = int(self.y)
+        if Rasengan.image:
+            idx = int(self.anim_frame) % len(Rasengan.frames)
+            surface.blit(Rasengan.frames[idx], (render_x, render_y))
+        else:
+            pygame.draw.circle(surface, (56, 189, 248), (render_x + 30, render_y + 30), 30)
+
+    def get_rect(self):
+        return pygame.Rect(self.x, self.y, self.width, self.height)
+
 # --- ENTIDADES BASE ---
 class Entity:
     def __init__(self, x, y, w, h, hp):
@@ -207,6 +266,9 @@ class Player(Entity):
         self.anim_frame = 0
         self.chakra = 100
         self.max_chakra = 100
+        self.rasengan_cooldown = 0
+        self.rasengan_anim_timer = 0
+        self.frame_count = 0
 
         self.frames_right = []
         self.frames_left = []
@@ -214,15 +276,15 @@ class Player(Entity):
         original_size = 204
         scale_size = 80 
         # --- CARGA DE EFECTOS DE SONIDO ---
-        if Player.jump_sound is None:
+        if audio_disponible and Player.jump_sound is None:
             try:
                 Player.jump_sound = pygame.mixer.Sound("salto.wav")
-                Player.jump_sound.set_volume(0.7) # Volumen al 30% para no aturdir
+                Player.jump_sound.set_volume(0.7)
             except Exception as e:
                 print(f"Aviso: No se encontró salto.wav - {e}")
                 Player.jump_sound = False
                 
-        if Player.shoot_sound is None:
+        if audio_disponible and Player.shoot_sound is None:
             try:
                 Player.shoot_sound = pygame.mixer.Sound("kunai.wav")
                 Player.shoot_sound.set_volume(0.9)
@@ -246,7 +308,29 @@ class Player(Entity):
             self.frames_right = [fallback] * 6
             self.frames_left = [fallback] * 6
 
-    def update(self, keys, cam_x, bullets_list, particles_list):
+        # --- SPRITE DE RASENGAN (animación de carga) ---
+        self.rasengan_frames_right = []
+        self.rasengan_frames_left = []
+        rasengan_scale = 100
+        try:
+            sheet_r = pygame.image.load("naruto_rasengan.png").convert_alpha()
+            fw = sheet_r.get_width() // 6
+            fh = sheet_r.get_height()
+            for i in range(6):
+                surf = pygame.Surface((fw, fh), pygame.SRCALPHA)
+                surf.blit(sheet_r, (0, 0), (i * fw, 0, fw, fh))
+                scaled = pygame.transform.scale(surf, (rasengan_scale, rasengan_scale))
+                self.rasengan_frames_right.append(scaled)
+                self.rasengan_frames_left.append(pygame.transform.flip(scaled, True, False))
+        except Exception as e:
+            print(f"Error cargando naruto_rasengan.png: {e}")
+            fallback_r = pygame.Surface((rasengan_scale, rasengan_scale), pygame.SRCALPHA)
+            pygame.draw.circle(fallback_r, (56, 189, 248), (50, 50), 40)
+            pygame.draw.circle(fallback_r, (255, 255, 255), (50, 50), 25)
+            self.rasengan_frames_right = [fallback_r] * 6
+            self.rasengan_frames_left = [fallback_r] * 6
+
+    def update(self, keys, cam_x, bullets_list, particles_list, rasengan_list):
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
             self.vx = -self.speed
             self.facing_right = False
@@ -260,7 +344,7 @@ class Player(Entity):
             self.vy = self.jump_force
             create_explosion(self.x + self.width/2, self.y + self.height, GRAY_LIGHT, 5, particles_list)
             
-            if Player.jump_sound:
+            if audio_disponible and Player.jump_sound:
                 Player.jump_sound.play()
 
         if keys[pygame.K_SPACE] and self.shoot_cooldown <= 0:
@@ -271,11 +355,27 @@ class Player(Entity):
             bullets_list.append(Bullet(bx, by, direction, True))
             self.x += -2 if self.facing_right else 2
             
-            if Player.shoot_sound:
+            if audio_disponible and Player.shoot_sound:
                 Player.shoot_sound.play()
+
+        # Rasengan (R)
+        if keys[pygame.K_r] and self.rasengan_cooldown <= 0 and self.chakra >= 30:
+            self.chakra -= 30
+            self.rasengan_cooldown = 60
+            self.rasengan_anim_timer = 20
+            bx = self.x + self.width if self.facing_right else self.x - 60
+            by = self.y - 5
+            direction = 1 if self.facing_right else -1
+            rasengan_list.append(Rasengan(bx, by, direction))
 
         if self.shoot_cooldown > 0: self.shoot_cooldown -= 1
         if self.invulnerable_timer > 0: self.invulnerable_timer -= 1
+        if self.rasengan_cooldown > 0: self.rasengan_cooldown -= 1
+        if self.rasengan_anim_timer > 0: self.rasengan_anim_timer -= 1
+
+        # Regeneración pasiva de chakra
+        if self.chakra < self.max_chakra and self.frame_count % 30 == 0:
+            self.chakra = min(self.max_chakra, self.chakra + 1)
 
         self.apply_physics()
 
@@ -307,6 +407,16 @@ class Player(Entity):
             radius = int(5 + random.random() * 5)
             f_x = render_x + 45 if self.facing_right else render_x - 15
             pygame.draw.circle(surface, YELLOW_DARK, (f_x, render_y + 25), radius)
+
+        # Animación de rasengan cuando se está cargando
+        if self.rasengan_anim_timer > 0:
+            rasengan_idx = int((20 - self.rasengan_anim_timer) * 0.3) % 6
+            if self.facing_right:
+                r_img = self.rasengan_frames_right[rasengan_idx]
+                surface.blit(r_img, (render_x + 15, render_y - 25))
+            else:
+                r_img = self.rasengan_frames_left[rasengan_idx]
+                surface.blit(r_img, (render_x - 45, render_y - 25))
 
 # --- ENEMIGOS ---
 class Enemy(Entity):
@@ -420,6 +530,9 @@ class Game:
         self.enemies = []
         self.bullets = []
         self.particles = []
+        self.rasengan_list = []
+        self.music_volume = 0.7
+        self.sfx_volume = 0.7
         self.level_distance = 5000
         
         self.current_background = None
@@ -482,12 +595,20 @@ class Game:
         self.player = Player()
         self.bullets.clear()
         self.particles.clear()
+        self.rasengan_list.clear()
         self.score = 0
         self.camera_x = 0
         self.frame_count = 0
         self.screen_shake = 0
         self.state = 'PLAYING'
-        self.load_level(1) # Arrancamos en nivel 1
+        self.load_level(1)
+
+        if audio_disponible:
+            pygame.mixer.music.set_volume(self.music_volume)
+            if Player.jump_sound:
+                Player.jump_sound.set_volume(0.7 * self.sfx_volume)
+            if Player.shoot_sound:
+                Player.shoot_sound.set_volume(0.9 * self.sfx_volume)
 
     def update(self):
         if self.state != 'PLAYING':
@@ -523,7 +644,8 @@ class Game:
             ))
 
         # Actualizar Jugador
-        self.player.update(keys, self.camera_x, self.bullets, self.particles)
+        self.player.frame_count = self.frame_count
+        self.player.update(keys, self.camera_x, self.bullets, self.particles, self.rasengan_list)
 
         # Actualizar Proyectiles
         for b in self.bullets[:]:
@@ -548,6 +670,22 @@ class Game:
             if hit or not b.active:
                 if b in self.bullets:
                     self.bullets.remove(b)
+
+        # Actualizar Rasengan
+        for r in self.rasengan_list[:]:
+            r.update()
+            r_rect = r.get_rect()
+            hit = False
+            for e in self.enemies:
+                if r_rect.colliderect(e.get_rect()):
+                    e.take_damage(r.damage)
+                    create_explosion(e.x + e.width/2, e.y + e.height/2, 'explosion', 40, self.particles)
+                    self.screen_shake = 20
+                    hit = True
+                    break
+            if hit or not r.active:
+                if r in self.rasengan_list:
+                    self.rasengan_list.remove(r)
 
         # Actualizar Enemigos
         for e in self.enemies[:]:
@@ -610,6 +748,8 @@ class Game:
                 e.draw(render_surface, self.camera_x, self.frame_count)
             for b in self.bullets:
                 b.draw(render_surface, self.camera_x)
+            for r in self.rasengan_list:
+                r.draw(render_surface, self.camera_x)
             for p in self.particles:
                 p.draw(render_surface, self.camera_x)
 
@@ -643,19 +783,26 @@ class Game:
                 pygame.draw.rect(render_surface, (14, 165, 233), (32, 102, ch_width, 20)) # Color azul eléctrico CH
                 pygame.draw.rect(render_surface, (56, 189, 248), (32, 102, ch_width, 6)) # Efecto de brillo
                 
-            # Arma
+            # Armas
             shadow_surf1 = font_small.render("ARMA", True, BLACK)
             shadow_surf2 = font_med.render("KUNAI ∞", True, BLACK)
 
             weapon_surf1 = font_small.render("ARMA", True, WHITE)
             weapon_surf2 = font_med.render("KUNAI ∞", True, YELLOW)
-            #Dibujar las sombras con un desplazamiento (offset) de +2 píxeles
             offset = 2
             render_surface.blit(shadow_surf1, (WIDTH - 150 + offset, 20 + offset))
             render_surface.blit(shadow_surf2, (WIDTH - 180 + offset, 40 + offset))
 
             render_surface.blit(weapon_surf1, (WIDTH - 150, 20))
             render_surface.blit(weapon_surf2, (WIDTH - 180, 40))
+
+            rasengan_label = font_small.render("RASENGAN (R)", True, WHITE)
+            render_surface.blit(rasengan_label, (WIDTH - 180, 70))
+            if self.player.chakra >= 30:
+                rasengan_ready = font_small.render("30 CHAKRA", True, (56, 189, 248))
+            else:
+                rasengan_ready = font_small.render("SIN CHAKRA", True, RED)
+            render_surface.blit(rasengan_ready, (WIDTH - 130, 88))
 
             # --- MENSAJE DE CAMBIO DE NIVEL ---
             if self.level_message_timer > 0:
@@ -675,17 +822,53 @@ class Game:
             if self.start_image:
                 render_surface.blit(self.start_image, (0, 0))
             else:
-                # Fallback por si hay un error con la imagen (fondo negro)
                 render_surface.fill(BLACK)
-            
+
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 160))
+            render_surface.blit(overlay, (0,0))
+
+            # --- BARRAS DE VOLUMEN (estilo acero como la vida) ---
+            bar_x = WIDTH // 2 - 106
+            bar_w = 212
+            bar_h = 32
+            inner_w = 180
+            inner_h = 20
+
+            vol_label = font_small.render("VOL. MÚSICA", True, WHITE)
+            render_surface.blit(vol_label, (bar_x, 230))
+            bx, by = bar_x, 248
+            pygame.draw.rect(render_surface, (70, 70, 75), (bx, by, bar_w, bar_h), border_radius=4)
+            pygame.draw.rect(render_surface, (30, 30, 35), (bx, by, bar_w, bar_h), 2, border_radius=4)
+            pygame.draw.circle(render_surface, (150, 150, 160), (bx + 8, by + 16), 3)
+            pygame.draw.circle(render_surface, (150, 150, 160), (bx + bar_w - 8, by + 16), 3)
+            pygame.draw.rect(render_surface, (20, 20, 20), (bx + 16, by + 6, inner_w, inner_h))
+            mw = int(self.music_volume * inner_w)
+            if mw > 0:
+                pygame.draw.rect(render_surface, (14, 165, 233), (bx + 16, by + 6, mw, inner_h))
+                pygame.draw.rect(render_surface, (56, 189, 248), (bx + 16, by + 6, mw, 6))
+
+            sfx_label = font_small.render("VOL. EFECTOS", True, WHITE)
+            render_surface.blit(sfx_label, (bar_x, 290))
+            bx2, by2 = bar_x, 308
+            pygame.draw.rect(render_surface, (70, 70, 75), (bx2, by2, bar_w, bar_h), border_radius=4)
+            pygame.draw.rect(render_surface, (30, 30, 35), (bx2, by2, bar_w, bar_h), 2, border_radius=4)
+            pygame.draw.circle(render_surface, (150, 150, 160), (bx2 + 8, by2 + 16), 3)
+            pygame.draw.circle(render_surface, (150, 150, 160), (bx2 + bar_w - 8, by2 + 16), 3)
+            pygame.draw.rect(render_surface, (20, 20, 20), (bx2 + 16, by2 + 6, inner_w, inner_h))
+            sw = int(self.sfx_volume * inner_w)
+            if sw > 0:
+                pygame.draw.rect(render_surface, (242, 107, 15), (bx2 + 16, by2 + 6, sw, inner_h))
+                pygame.draw.rect(render_surface, (255, 160, 60), (bx2 + 16, by2 + 6, sw, 6))
+
+            vol_ctrl = font_small.render("W/S o ↑/↓: Música   A/D o ←/→: Efectos", True, GRAY_LIGHT)
+            render_surface.blit(vol_ctrl, (WIDTH//2 - vol_ctrl.get_width()//2, 360))
+
             if (pygame.time.get_ticks() // 500) % 2 == 0:
                 start_txt = font_med.render("PRESIONA ESPACIO PARA INICIAR", True, YELLOW)
                 shadow_start = font_med.render("PRESIONA ESPACIO PARA INICIAR", True, BLACK)
-                
-                
                 pos_x = WIDTH//2 - start_txt.get_width()//2
-                pos_y = HEIGHT - 200 
-                
+                pos_y = 420
                 render_surface.blit(shadow_start, (pos_x + 2, pos_y + 2))
                 render_surface.blit(start_txt, (pos_x, pos_y))
 
@@ -721,8 +904,23 @@ def main():
                 running = False
             
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    if game.state == 'START' or game.state == 'GAMEOVER':
+                if game.state == 'START':
+                    if event.key == pygame.K_SPACE:
+                        game.reset()
+                    elif event.key in (pygame.K_w, pygame.K_UP):
+                        game.music_volume = min(1.0, game.music_volume + 0.1)
+                        if audio_disponible:
+                            pygame.mixer.music.set_volume(game.music_volume)
+                    elif event.key in (pygame.K_s, pygame.K_DOWN):
+                        game.music_volume = max(0.0, game.music_volume - 0.1)
+                        if audio_disponible:
+                            pygame.mixer.music.set_volume(game.music_volume)
+                    elif event.key in (pygame.K_d, pygame.K_RIGHT):
+                        game.sfx_volume = min(1.0, game.sfx_volume + 0.1)
+                    elif event.key in (pygame.K_a, pygame.K_LEFT):
+                        game.sfx_volume = max(0.0, game.sfx_volume - 0.1)
+                elif game.state == 'GAMEOVER':
+                    if event.key == pygame.K_SPACE:
                         game.reset()
 
         game.update()

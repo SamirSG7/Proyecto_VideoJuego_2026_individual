@@ -145,6 +145,54 @@ class Bullet:
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
+# --- RASENGAN (HABILIDAD ESPECIAL) ---
+class Rasengan:
+    image = None
+    frames = []
+
+    def __init__(self, x, y, dir_x):
+        self.x = float(x)
+        self.y = float(y)
+        self.vx = dir_x * 12
+        self.width = 60
+        self.height = 60
+        self.damage = 300
+        self.active = True
+        self.anim_frame = 0
+
+        if not Rasengan.frames:
+            try:
+                sheet = pygame.image.load("rasengan.png").convert_alpha()
+                fw = sheet.get_width() // 2
+                fh = sheet.get_height()
+                for i in range(2):
+                    surf = pygame.Surface((fw, fh), pygame.SRCALPHA)
+                    surf.blit(sheet, (0, 0), (i * fw, 0, fw, fh))
+                    surf = pygame.transform.scale(surf, (self.width, self.height))
+                    Rasengan.frames.append(surf)
+                Rasengan.image = True
+            except Exception as e:
+                print(f"Error cargando rasengan.png: {e}")
+                Rasengan.image = False
+
+    def update(self):
+        self.x += self.vx
+        self.anim_frame += 0.2
+        if self.x < -200 or self.x > 2000:
+            self.active = False
+
+    def draw(self, surface, cam_x):
+        render_x = int(self.x - cam_x)
+        render_y = int(self.y)
+        if Rasengan.image:
+            idx = int(self.anim_frame) % len(Rasengan.frames)
+            surface.blit(Rasengan.frames[idx], (render_x, render_y))
+        else:
+            pygame.draw.circle(surface, (56, 189, 248), (render_x + 30, render_y + 30), 30)
+
+    def get_rect(self):
+        return pygame.Rect(self.x, self.y, self.width, self.height)
+
 # --- ENTIDADES BASE ---
 class Entity:
     def __init__(self, x, y, w, h, hp):
@@ -213,6 +261,9 @@ class Player(Entity):
         self.anim_frame = 0
         self.chakra = 100
         self.max_chakra = 100
+        self.rasengan_cooldown = 0
+        self.rasengan_anim_timer = 0
+        self.frame_count = 0
 
         # --- SISTEMA DE SPRITES ---
         self.frames_right = []
@@ -250,7 +301,29 @@ class Player(Entity):
             self.frames_right = [fallback] * 6
             self.frames_left = [fallback] * 6
 
-    def update(self, keys, cam_x, bullets_list, particles_list):
+        # --- SPRITE DE RASENGAN (animación de carga) ---
+        self.rasengan_frames_right = []
+        self.rasengan_frames_left = []
+        rasengan_scale = 100
+        try:
+            sheet_r = pygame.image.load("naruto_rasengan.png").convert_alpha()
+            fw = sheet_r.get_width() // 6
+            fh = sheet_r.get_height()
+            for i in range(6):
+                surf = pygame.Surface((fw, fh), pygame.SRCALPHA)
+                surf.blit(sheet_r, (0, 0), (i * fw, 0, fw, fh))
+                scaled = pygame.transform.scale(surf, (rasengan_scale, rasengan_scale))
+                self.rasengan_frames_right.append(scaled)
+                self.rasengan_frames_left.append(pygame.transform.flip(scaled, True, False))
+        except Exception as e:
+            print(f"Error cargando naruto_rasengan.png: {e}")
+            fallback_r = pygame.Surface((rasengan_scale, rasengan_scale), pygame.SRCALPHA)
+            pygame.draw.circle(fallback_r, (56, 189, 248), (50, 50), 40)
+            pygame.draw.circle(fallback_r, (255, 255, 255), (50, 50), 25)
+            self.rasengan_frames_right = [fallback_r] * 6
+            self.rasengan_frames_left = [fallback_r] * 6
+
+    def update(self, keys, cam_x, bullets_list, particles_list, rasengan_list):
         # Movimiento
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
             self.vx = -self.speed
@@ -268,7 +341,7 @@ class Player(Entity):
             if audio_disponible and Player.jump_sound:
                 Player.jump_sound.play()
 
-        # Disparo
+        # Disparo (Kunai)
         if keys[pygame.K_SPACE] and self.shoot_cooldown <= 0:
             self.shoot_cooldown = 8
             bx = self.x + self.width if self.facing_right else self.x - 12
@@ -280,8 +353,24 @@ class Player(Entity):
             # Retroceso visual
             self.x += -2 if self.facing_right else 2
 
+        # Rasengan (R)
+        if keys[pygame.K_r] and self.rasengan_cooldown <= 0 and self.chakra >= 30:
+            self.chakra -= 30
+            self.rasengan_cooldown = 60
+            self.rasengan_anim_timer = 20
+            bx = self.x + self.width if self.facing_right else self.x - 60
+            by = self.y - 5
+            direction = 1 if self.facing_right else -1
+            rasengan_list.append(Rasengan(bx, by, direction))
+
         if self.shoot_cooldown > 0: self.shoot_cooldown -= 1
         if self.invulnerable_timer > 0: self.invulnerable_timer -= 1
+        if self.rasengan_cooldown > 0: self.rasengan_cooldown -= 1
+        if self.rasengan_anim_timer > 0: self.rasengan_anim_timer -= 1
+
+        # Regeneración pasiva de chakra (+1 cada 30 frames = 0.5s)
+        if self.chakra < self.max_chakra and self.frame_count % 30 == 0:
+            self.chakra = min(self.max_chakra, self.chakra + 1)
 
         self.apply_physics()
 
@@ -324,6 +413,16 @@ class Player(Entity):
             radius = int(5 + random.random() * 5)
             f_x = render_x + 45 if self.facing_right else render_x - 15
             pygame.draw.circle(surface, YELLOW_DARK, (f_x, render_y + 25), radius)
+
+        # Animación de rasengan cuando se está cargando
+        if self.rasengan_anim_timer > 0:
+            rasengan_idx = int((20 - self.rasengan_anim_timer) * 0.3) % 6
+            if self.facing_right:
+                r_img = self.rasengan_frames_right[rasengan_idx]
+                surface.blit(r_img, (render_x + 15, render_y - 25))
+            else:
+                r_img = self.rasengan_frames_left[rasengan_idx]
+                surface.blit(r_img, (render_x - 45, render_y - 25))
 
 
 # --- ENEMIGOS ---
@@ -455,6 +554,7 @@ class Game:
         self.enemies = []
         self.bullets = []
         self.particles = []
+        self.rasengan_list = []
         self.music_volume = 0.7
         self.sfx_volume = 0.7
 
@@ -482,6 +582,7 @@ class Game:
         self.enemies.clear()
         self.bullets.clear()
         self.particles.clear()
+        self.rasengan_list.clear()
         self.score = 0
         self.camera_x = 0
         self.frame_count = 0
@@ -522,7 +623,8 @@ class Game:
             self.enemies.append(Enemy(self.camera_x + WIDTH + 50, e_type))
 
         # Actualizar Jugador
-        self.player.update(keys, self.camera_x, self.bullets, self.particles)
+        self.player.frame_count = self.frame_count
+        self.player.update(keys, self.camera_x, self.bullets, self.particles, self.rasengan_list)
 
         # Actualizar Proyectiles
         for b in self.bullets[:]:
@@ -547,6 +649,22 @@ class Game:
             if hit or not b.active:
                 if b in self.bullets:
                     self.bullets.remove(b)
+
+        # Actualizar Rasengan
+        for r in self.rasengan_list[:]:
+            r.update()
+            r_rect = r.get_rect()
+            hit = False
+            for e in self.enemies:
+                if r_rect.colliderect(e.get_rect()):
+                    e.take_damage(r.damage)
+                    create_explosion(e.x + e.width/2, e.y + e.height/2, 'explosion', 40, self.particles)
+                    self.screen_shake = 20
+                    hit = True
+                    break
+            if hit or not r.active:
+                if r in self.rasengan_list:
+                    self.rasengan_list.remove(r)
 
         # Actualizar Enemigos
         for e in self.enemies[:]:
@@ -615,6 +733,8 @@ class Game:
                 e.draw(render_surface, self.camera_x, self.frame_count)
             for b in self.bullets:
                 b.draw(render_surface, self.camera_x)
+            for r in self.rasengan_list:
+                r.draw(render_surface, self.camera_x)
             for p in self.particles:
                 p.draw(render_surface, self.camera_x)
 
@@ -644,11 +764,19 @@ class Game:
                 pygame.draw.rect(render_surface, (14, 165, 233), (32, 102, ch_width, 20)) # Color azul eléctrico CH
                 pygame.draw.rect(render_surface, (56, 189, 248), (32, 102, ch_width, 6)) # Efecto de brillo
                 
-            # Arma
+            # Armas
             weapon_surf1 = font_small.render("ARMA", True, WHITE)
-            weapon_surf2 = font_med.render("MTRL. PESADA ∞", True, YELLOW)
+            weapon_surf2 = font_med.render("KUNAI ∞", True, YELLOW)
             render_surface.blit(weapon_surf1, (WIDTH - 150, 20))
-            render_surface.blit(weapon_surf2, (WIDTH - 250, 40))
+            render_surface.blit(weapon_surf2, (WIDTH - 180, 40))
+
+            rasengan_label = font_small.render("RASENGAN (R)", True, WHITE)
+            render_surface.blit(rasengan_label, (WIDTH - 180, 70))
+            if self.player.chakra >= 30:
+                rasengan_ready = font_small.render("30 CHAKRA", True, (56, 189, 248))
+            else:
+                rasengan_ready = font_small.render("SIN CHAKRA", True, RED)
+            render_surface.blit(rasengan_ready, (WIDTH - 130, 88))
 
         # --- PANTALLAS DE MENÚ ---
         if self.state == 'START':
@@ -662,7 +790,7 @@ class Game:
             subtitle = font_med.render("MISIÓN: SOBREVIVIR", True, WHITE)
             render_surface.blit(subtitle, (WIDTH//2 - subtitle.get_width()//2, 150))
             
-            controls = font_small.render("W A S D: Mover | ESPACIO: Disparar", True, GRAY_LIGHT)
+            controls = font_small.render("W A S D: Mover | ESPACIO: Kunai | R: Rasengan", True, GRAY_LIGHT)
             render_surface.blit(controls, (WIDTH//2 - controls.get_width()//2, 210))
 
             # --- BARRAS DE VOLUMEN (estilo acero como la vida) ---
