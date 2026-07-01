@@ -567,12 +567,16 @@ class Game:
             score_surf = font_med.render(f"PUNTOS: {self.score}", True, YELLOW)
             render_surface.blit(score_surf, (20, 20))
             
-            # Barra de vida
-            pygame.draw.rect(render_surface, WHITE, (20, 60, 204, 24), 2) # Borde
-            pygame.draw.rect(render_surface, (127, 29, 29), (22, 62, 200, 20)) # Fondo rojo oscuro
-            hp_width = int((self.player.hp / self.player.max_hp) * 200)
+            # Barra de vida - Estilo Acero
+            pygame.draw.rect(render_surface, (70, 70, 75), (16, 56, 212, 32), border_radius=4) # Contenedor metalico
+            pygame.draw.rect(render_surface, (30, 30, 35), (16, 56, 212, 32), 2, border_radius=4) # Borde oscuro
+            pygame.draw.circle(render_surface, (150, 150, 160), (24, 72), 3) # Remache izquierdo
+            pygame.draw.circle(render_surface, (150, 150, 160), (220, 72), 3) # Remache derecho
+            pygame.draw.rect(render_surface, (20, 20, 20), (32, 62, 180, 20)) # Fondo oscuro barra
+            hp_width = int((self.player.hp / self.player.max_hp) * 180)
             if hp_width > 0:
-                pygame.draw.rect(render_surface, RED, (22, 62, hp_width, 20)) # Vida actual
+                pygame.draw.rect(render_surface, (242, 107, 15), (32, 62, hp_width, 20)) # Color naranja HP
+                pygame.draw.rect(render_surface, (255, 160, 60), (32, 62, hp_width, 6)) # Efecto de brillo
                 
             # Arma
             weapon_surf1 = font_small.render("ARMA", True, WHITE)
