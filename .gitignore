@@ -1,1 +1,4 @@
 firebasekey.json
+build/
+dist/
+*.spec
