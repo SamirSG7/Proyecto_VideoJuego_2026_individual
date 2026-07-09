@@ -49,6 +49,7 @@
 * **Ataque:** Disparo de proyectiles (Kunais) con la tecla ESPACIO y un sistema de cooldown (enfriamiento) para no disparar infinitamente.
 * **Animación:** Carga un spritesheet (hoja de sprites), lo recorta y actualiza los frames según la dirección y velocidad del jugador.
 * **Sonidos:** Integración del módulo `pygame.mixer` para efectos de salto y disparo.
+* **Recolección de Ítems:** Interactúa con ítems como Ramen (vida), Clones (chakra) y Pergaminos (invulnerabilidad temporal).
 
 ---
 
@@ -86,6 +87,7 @@
     * Un cuadro central estilo pergamino para el puntaje y el nivel actual.
     * Cuadros estilo pergamino para el tipo de arma (Kunai) y el estado del Rasengan.
     * Barra de vida dedicada para el Jefe Final (cuando está activo), con su retrato, emblema y un indicador "VS Nivel".
+    * **Sistema de Ítems:** El jugador puede recoger Pergaminos (invulnerabilidad), Ramen (restaura HP) y Clones (restaura Chakra).
 * **Screen Shake:** Efecto de temblor de pantalla al recibir daño o destruir tanques.
 
 ---
