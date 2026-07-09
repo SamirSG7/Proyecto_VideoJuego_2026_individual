@@ -80,7 +80,12 @@
 * **Máquina de Estados:** Maneja las transiciones entre pantallas (START, PLAYING, GAMEOVER).
 * **Cámara de Desplazamiento (Scrolling):** * La cámara sigue al jugador (`target_cam_x`).
     * El suelo y el fondo se renderizan de manera relativa a la cámara, creando la ilusión de un mundo infinito.
-* **HUD (Interfaz):** Muestra el puntaje, la barra de vida dinámica y el nivel actual.
+* **HUD (Interfaz):** Presenta un diseño completamente renovado estilo pergamino. Incluye:
+    * Retrato de Naruto y emblema de Konoha.
+    * Barras de vida (HP) y Chakra con degradado de color y valores numéricos.
+    * Un cuadro central estilo pergamino para el puntaje y el nivel actual.
+    * Cuadros estilo pergamino para el tipo de arma (Kunai) y el estado del Rasengan.
+    * Barra de vida dedicada para el Jefe Final (cuando está activo), con su retrato, emblema y un indicador "VS Nivel".
 * **Screen Shake:** Efecto de temblor de pantalla al recibir daño o destruir tanques.
 
 ---
@@ -91,6 +96,6 @@
 * Entendimiento del Game Loop (Bucle de juego: Entrada -> Actualización -> Renderizado).
 
 **Mejoras a futuro:**
-* Añadir un jefe final (Boss).
+* Añadir un jefe final (Boss). (Implementación básica del HUD completada)
 * Implementar un sistema de guardado de puntaje máximo (High Score) usando archivos de texto o bases de datos.
 * Agregar menús de configuración de volumen.
