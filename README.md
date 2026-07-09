@@ -49,7 +49,10 @@
 * **Ataque:** Disparo de proyectiles (Kunais) con la tecla ESPACIO y un sistema de cooldown (enfriamiento) para no disparar infinitamente.
 * **Animación:** Carga un spritesheet (hoja de sprites), lo recorta y actualiza los frames según la dirección y velocidad del jugador.
 * **Sonidos:** Integración del módulo `pygame.mixer` para efectos de salto y disparo.
-* **Recolección de Ítems:** Interactúa con ítems como Ramen (vida), Clones (chakra) y Pergaminos (invulnerabilidad temporal).
+* **Recolección de Ítems (Power-Ups):** El jugador puede recoger diversos ítems con efectos estratégicos:
+    * **Pergamino:** Otorga invulnerabilidad temporal por 5 segundos.
+    * **Ramen:** Restaura completamente la vida del jugador.
+    * **Clon Naruto:** Rellena por completo la barra de Chakra del jugador.
 
 ---
 
@@ -93,7 +96,7 @@
 ## El Gran Jefe (Boss)
 **Implementación:**
 *   **Jefes por Nivel:** Se instancian dinámicamente según el nivel (Shukaku para Nivel 1, Itachi para Nivel 2).
-*   **Ataques Especiales:** Cada jefe tiene un conjunto de ataques y proyectiles únicos.
+*   **Ataques Especiales:** Cada jefe tiene un conjunto de ataques y proyectiles únicos, incluyendo poderosas técnicas como el Bijudama (Shukaku) y el Amaterasu (Itachi).
 *   **Barra de Vida Estética:** Se integra una barra de vida dedicada en el HUD para cada jefe, mostrando su retrato, emblema y el indicador "VS Nivel".
 
 ---
