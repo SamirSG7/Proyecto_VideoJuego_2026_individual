@@ -92,12 +92,19 @@
 
 ---
 
+## El Gran Jefe (Boss)
+**Implementación:**
+*   **Jefes por Nivel:** Se instancian dinámicamente según el nivel (Shukaku para Nivel 1, Itachi para Nivel 2).
+*   **Ataques Especiales:** Cada jefe tiene un conjunto de ataques y proyectiles únicos.
+*   **Barra de Vida Estética:** Se integra una barra de vida dedicada en el HUD para cada jefe, mostrando su retrato, emblema y el indicador "VS Nivel".
+
+---
+
 ## Conclusiones y Mejoras Futuras
 **Aprendizajes clave:**
 * Aplicación práctica de Álgebra y Física en código (vectores, gravedad).
 * Entendimiento del Game Loop (Bucle de juego: Entrada -> Actualización -> Renderizado).
 
 **Mejoras a futuro:**
-* Añadir un jefe final (Boss). (Implementación básica del HUD completada)
 * Implementar un sistema de guardado de puntaje máximo (High Score) usando archivos de texto o bases de datos.
 * Agregar menús de configuración de volumen.
