@@ -49,6 +49,7 @@
 * **Ataque:** Disparo de proyectiles (Kunais) con la tecla ESPACIO y un sistema de cooldown (enfriamiento) para no disparar infinitamente.
 * **Animación:** Carga un spritesheet (hoja de sprites), lo recorta y actualiza los frames según la dirección y velocidad del jugador.
 * **Sonidos:** Integración del módulo `pygame.mixer` para efectos de salto y disparo.
+* **Recolección de Ítems:** Interactúa con ítems como Ramen (vida), Clones (chakra) y Pergaminos (invulnerabilidad temporal).
 
 ---
 
@@ -80,8 +81,22 @@
 * **Máquina de Estados:** Maneja las transiciones entre pantallas (START, PLAYING, GAMEOVER).
 * **Cámara de Desplazamiento (Scrolling):** * La cámara sigue al jugador (`target_cam_x`).
     * El suelo y el fondo se renderizan de manera relativa a la cámara, creando la ilusión de un mundo infinito.
-* **HUD (Interfaz):** Muestra el puntaje, la barra de vida dinámica y el nivel actual.
+* **HUD (Interfaz):** Presenta un diseño completamente renovado estilo pergamino. Incluye:
+    * Retrato de Naruto y emblema de Konoha.
+    * Barras de vida (HP) y Chakra con degradado de color y valores numéricos.
+    * Un cuadro central estilo pergamino para el puntaje y el nivel actual.
+    * Cuadros estilo pergamino para el tipo de arma (Kunai) y el estado del Rasengan.
+    * Barra de vida dedicada para el Jefe Final (cuando está activo), con su retrato, emblema y un indicador "VS Nivel".
+    * **Sistema de Ítems:** El jugador puede recoger Pergaminos (invulnerabilidad), Ramen (restaura HP) y Clones (restaura Chakra).
 * **Screen Shake:** Efecto de temblor de pantalla al recibir daño o destruir tanques.
+
+---
+
+## El Gran Jefe (Boss)
+**Implementación:**
+*   **Jefes por Nivel:** Se instancian dinámicamente según el nivel (Shukaku para Nivel 1, Itachi para Nivel 2).
+*   **Ataques Especiales:** Cada jefe tiene un conjunto de ataques y proyectiles únicos.
+*   **Barra de Vida Estética:** Se integra una barra de vida dedicada en el HUD para cada jefe, mostrando su retrato, emblema y el indicador "VS Nivel".
 
 ---
 
@@ -91,6 +106,5 @@
 * Entendimiento del Game Loop (Bucle de juego: Entrada -> Actualización -> Renderizado).
 
 **Mejoras a futuro:**
-* Añadir un jefe final (Boss).
 * Implementar un sistema de guardado de puntaje máximo (High Score) usando archivos de texto o bases de datos.
 * Agregar menús de configuración de volumen.
