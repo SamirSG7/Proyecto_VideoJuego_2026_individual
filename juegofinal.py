@@ -78,6 +78,87 @@ GRAY_DARK = (55, 65, 81)
 GRAY_LIGHT = (156, 163, 175)
 PURPLE = (128, 0, 128)
 
+# --- HUD ASSETS ---
+hud_pergamino = None
+hud_naruto = None
+hud_emblema = None
+hud_boss_portrait = None
+
+try:
+    hud_pergamino = pygame.image.load("sprite/pergamino.png").convert_alpha()
+    hud_pergamino = pygame.transform.scale(hud_pergamino, (350, 110))
+except: pass
+
+try:
+    hud_naruto = pygame.image.load("sprite/naruto.png").convert_alpha()
+    hud_naruto = pygame.transform.scale(hud_naruto, (80, 80))
+except: pass
+
+try:
+    hud_emblema = pygame.image.load("sprite/emblema.png").convert_alpha()
+    hud_emblema = pygame.transform.scale(hud_emblema, (60, 60))
+except: pass
+
+try:
+    hud_boss_portrait = pygame.image.load("sprite/granjefe.png").convert_alpha()
+    hud_boss_portrait = pygame.transform.scale(hud_boss_portrait, (80, 80))
+except: pass
+
+# --- FUNCIONES HUD ---
+def draw_gradient_bar(surface, x, y, w, h, ratio, border_color=(80, 60, 30)):
+    ratio = max(0.0, min(1.0, ratio))
+    bg_color = (30, 20, 10)
+    pygame.draw.rect(surface, bg_color, (x, y, w, h), border_radius=5)
+    if ratio > 0.5:
+        t = (ratio - 0.5) / 0.5
+        color = (int(220 * t + 220 * (1 - t)), int(200 * t + 180 * (1 - t)), int(50 * t + 50 * (1 - t)))
+        top_color = (min(255, color[0] + 50), min(255, color[1] + 50), min(255, color[2] + 30))
+    elif ratio > 0.25:
+        t = (ratio - 0.25) / 0.25
+        color = (int(220 * t + 220 * (1 - t)), int(180 * t + 100 * (1 - t)), int(50 * t + 30 * (1 - t)))
+        top_color = (min(255, color[0] + 40), min(255, color[1] + 40), min(255, color[2] + 20))
+    else:
+        t = ratio / 0.25
+        color = (int(220 * t + 180 * (1 - t)), int(100 * t + 30 * (1 - t)), int(30 * t + 20 * (1 - t)))
+        top_color = (min(255, color[0] + 30), min(255, color[1] + 20), min(255, color[2] + 10))
+    fill_w = int(w * ratio)
+    if fill_w > 0:
+        pygame.draw.rect(surface, color, (x, y, fill_w, h), border_radius=5)
+        pygame.draw.rect(surface, top_color, (x, y, fill_w, max(1, h // 3)), border_radius=5)
+    pygame.draw.rect(surface, border_color, (x - 1, y - 1, w + 2, h + 2), 1, border_radius=5)
+
+def create_vs_surface(level):
+    vs_size = 55
+    vs_surf = pygame.Surface((vs_size, vs_size), pygame.SRCALPHA)
+    pygame.draw.rect(vs_surf, (190, 150, 90), (0, 0, vs_size, vs_size), border_radius=12)
+    pygame.draw.rect(vs_surf, (130, 95, 50), (3, 3, vs_size - 6, vs_size - 6), border_radius=10)
+    pygame.draw.rect(vs_surf, (70, 45, 25), (5, 5, vs_size - 10, vs_size - 10), border_radius=8)
+    pygame.draw.rect(vs_surf, (200, 170, 110), (7, 7, vs_size - 14, vs_size - 14), 1, border_radius=7)
+    vs_text = font_med.render("VS", True, (230, 200, 130))
+    vs_surf.blit(vs_text, (vs_size // 2 - vs_text.get_width() // 2, 4))
+    lvl_text = font_small.render(f"Nv.{level}", True, (210, 180, 120))
+    vs_surf.blit(lvl_text, (vs_size // 2 - lvl_text.get_width() // 2, 30))
+    return vs_surf
+
+def create_score_box(surface, score, level):
+    box_size_w = 120 # Ancho
+    box_size_h = 70  # Alto, ajustado para el interlineado
+    box_x = WIDTH // 2 - box_size_w // 2
+    box_y = 10
+
+    # Fondo y bordes estilo pergamino
+    pygame.draw.rect(surface, (190, 150, 90), (box_x, box_y, box_size_w, box_size_h), border_radius=10)
+    pygame.draw.rect(surface, (130, 95, 50), (box_x + 3, box_y + 3, box_size_w - 6, box_size_h - 6), border_radius=8)
+    pygame.draw.rect(surface, (70, 45, 25), (box_x + 5, box_y + 5, box_size_w - 10, box_size_h - 10), border_radius=6)
+
+    # Texto del score
+    score_text = font_small.render(f"SCORE: {score}", True, (230, 200, 130)) 
+    surface.blit(score_text, (box_x + box_size_w // 2 - score_text.get_width() // 2, box_y + 8)) # Ajustar Y
+
+    # Texto del nivel
+    level_text = font_small.render(f"NIVEL: {level}", True, (210, 180, 120)) 
+    surface.blit(level_text, (box_x + box_size_w // 2 - level_text.get_width() // 2, box_y + 35)) # Ajustar Y
+
 # Fuentes
 try:
     font_large = pygame.font.SysFont("courier", 60, bold=True)
@@ -442,6 +523,8 @@ class Player(Entity):
         self.jump_force = -12
         self.shoot_cooldown = 0
         self.invulnerable_timer = 0
+        self.damage_shake = 0
+        self.damage_flash = 0
         self.anim_frame = 0
         
         self.chakra = 100
@@ -523,6 +606,8 @@ class Player(Entity):
         if self.invulnerable_timer > 0: self.invulnerable_timer -= 1
         if self.rasengan_cooldown > 0: self.rasengan_cooldown -= 1
         if self.rasengan_anim_timer > 0: self.rasengan_anim_timer -= 1
+        if self.damage_shake > 0: self.damage_shake -= 1
+        if self.damage_flash > 0: self.damage_flash -= 1
 
         if self.chakra < self.max_chakra and self.frame_count % 30 == 0:
             self.chakra = min(self.max_chakra, self.chakra + 1)
@@ -538,11 +623,19 @@ class Player(Entity):
         if abs(self.vx) > 1 and self.is_grounded: self.anim_frame += 0.3
         else: self.anim_frame = 0
 
+    def take_damage(self, amount):
+        super().take_damage(amount)
+        self.damage_shake = 12
+        self.damage_flash = 10
+
     def draw(self, surface, cam_x, frame_count):
         if self.invulnerable_timer > 0 and (frame_count // 4) % 2 == 0: return 
 
         render_x = int(self.x - cam_x)
         render_y = int(self.y)
+        if self.damage_shake > 0:
+            render_x += random.randint(-3, 3)
+            render_y += random.randint(-2, 2)
         current_index = int(self.anim_frame) % 6
 
         if self.rasengan_anim_timer > 0 and self.rasengan_frames_right:
@@ -552,6 +645,10 @@ class Player(Entity):
         else:
             current_image = self.frames_right[current_index] if self.facing_right else self.frames_left[current_index]
             surface.blit(current_image, (render_x - 15, render_y - 10))
+        if self.damage_flash > 0 and self.damage_flash % 2 == 0:
+            flash = pygame.Surface((80, 80), pygame.SRCALPHA)
+            flash.fill((255, 50, 50, 80))
+            surface.blit(flash, (render_x - 15, render_y - 10))
 
 # --- ENEMIGOS REGULARES ---
 class Enemy(Entity):
@@ -786,7 +883,8 @@ class Game:
         self.floor_image = None
 
         try:
-            self.start_image = pygame.transform.scale(pygame.image.load("poortada.png").convert(), (WIDTH, HEIGHT))
+            self.start_image = None # Comentado temporalmente
+            # self.start_image = pygame.transform.scale(pygame.image.load("poortada.png").convert(), (WIDTH, HEIGHT))
         except:
             self.start_image = None
 
@@ -1042,50 +1140,102 @@ class Game:
             for p in self.particles: p.draw(render_surface, self.camera_x)
 
             # --- DIBUJAR HUD (Interfaz) ---
-            shadow_score = font_med.render(f"PUNTOS: {self.score}", True, BLACK)
-            score_surf = font_med.render(f"PUNTOS: {self.score}", True, YELLOW)
-            offset = 2
-            render_surface.blit(shadow_score, (20 + offset, 20 + offset))
-            render_surface.blit(score_surf, (20, 20))
+            offset = 2 # Definir offset aquí
+            create_score_box(render_surface, self.score, self.level)
             
-            pygame.draw.rect(render_surface, WHITE, (20, 60, 204, 24), 2) 
-            pygame.draw.rect(render_surface, (127, 29, 29), (22, 62, 200, 20)) 
-            hp_width = int((self.player.hp / self.player.max_hp) * 200)
-            if hp_width > 0: pygame.draw.rect(render_surface, RED, (22, 62, hp_width, 20)) 
-                
-            pygame.draw.rect(render_surface, WHITE, (20, 90, 204, 24), 2)
-            pygame.draw.rect(render_surface, (15, 23, 42), (22, 92, 200, 20)) 
-            ch_width = int((self.player.chakra / self.player.max_chakra) * 200)
-            if ch_width > 0: pygame.draw.rect(render_surface, (14, 165, 233), (22, 92, ch_width, 20))
-                
-            # HUD Jefe Final
-            if self.boss_active and self.boss:
-                pygame.draw.rect(render_surface, WHITE, (WIDTH//2 - 250, 30, 500, 24), 2)
-                pygame.draw.rect(render_surface, (60, 10, 10), (WIDTH//2 - 248, 32, 496, 20))
-                boss_hp_w = int((self.boss.hp / self.boss.max_hp) * 496)
-                if boss_hp_w > 0: pygame.draw.rect(render_surface, RED_DARK, (WIDTH//2 - 248, 32, boss_hp_w, 20))
-                
-                boss_name = font_small.render(self.boss.name, True, WHITE)
-                render_surface.blit(boss_name, (WIDTH//2 - boss_name.get_width()//2, 60))
+            # --- HUD JUGADOR (Pergamino) ---
+            # Posición base del HUD para el jugador
+            hud_player_base_x = 10
+            hud_player_base_y = 30
+
+            if hud_naruto:
+                render_surface.blit(hud_naruto, (hud_player_base_x, hud_player_base_y + 10))
+
+            if hud_pergamino:
+                render_surface.blit(hud_pergamino, (hud_player_base_x + 70, hud_player_base_y))
+            else:
+                pygame.draw.rect(render_surface, (90, 60, 30), (hud_player_base_x + 70, hud_player_base_y, 350, 110), border_radius=8)
+                pygame.draw.rect(render_surface, (60, 40, 20), (hud_player_base_x + 70, hud_player_base_y, 350, 110), 2, border_radius=8)
+            
+            if hud_emblema:
+                render_surface.blit(hud_emblema, (hud_player_base_x + 90, hud_player_base_y + 35))
+            
+            name_label = font_small.render("NARUTO", True, (60, 40, 20))
+            render_surface.blit(name_label, (hud_player_base_x + 10, hud_player_base_y + 80)) # Ajustar posición
+            
+            hp_ratio = self.player.hp / self.player.max_hp if self.player.max_hp > 0 else 0
+            draw_gradient_bar(render_surface, hud_player_base_x + 160, hud_player_base_y + 38, 200, 20, hp_ratio)
+            hp_text = font_small.render(f"{self.player.hp} / {self.player.max_hp}", True, BLACK)
+            render_surface.blit(hp_text, (hud_player_base_x + 230, hud_player_base_y + 39))
+            
+            ch_ratio = self.player.chakra / self.player.max_chakra if self.player.max_chakra > 0 else 0
+            draw_gradient_bar(render_surface, hud_player_base_x + 160, hud_player_base_y + 65, 200, 18, ch_ratio, border_color=(30, 60, 120))
+            ch_text = font_small.render(f"{self.player.chakra} / {self.player.max_chakra}", True, BLACK)
+            render_surface.blit(ch_text, (hud_player_base_x + 230, hud_player_base_y + 66))
+
+            # # HUD Jefe Final (Pergamino espejado)
+            # if self.boss_active and self.boss:
+            #     boss_bar_x = WIDTH // 2 - 150
+            #     if hud_pergamino:
+            #         render_surface.blit(hud_pergamino, (boss_bar_x, 8))
+            #     else:
+            #         pygame.draw.rect(render_surface, (90, 60, 30), (boss_bar_x, 8, 300, 110), border_radius=8)
+            #         pygame.draw.rect(render_surface, (60, 40, 20), (boss_bar_x, 8, 300, 110), 2, border_radius=8)
+            #     if hud_boss_portrait:
+            #         render_surface.blit(hud_boss_portrait, (boss_bar_x + 248, 26))
+            #     if hud_emblema:
+            #         render_surface.blit(hud_emblema, (boss_bar_x + 222, 56))
+            #     vs_surf = create_vs_surface(self.level)
+            #     render_surface.blit(vs_surf, (WIDTH // 2 - 27, 20))
+            #     boss_name = font_small.render(self.boss.name, True, WHITE)
+            #     render_surface.blit(boss_name, (WIDTH // 2 - boss_name.get_width() // 2, 18))
+            #     boss_hp_ratio = self.boss.hp / self.boss.max_hp if self.boss.max_hp > 0 else 0
+            #     draw_gradient_bar(render_surface, boss_bar_x + 10, 48, 200, 16, boss_hp_ratio)
+            #     boss_hp_text = font_small.render(f"{self.boss.hp} / {self.boss.max_hp}", True, WHITE)
+            #     render_surface.blit(boss_hp_text, (boss_bar_x + 55, 48))
+            #     boss_ch_ratio = getattr(self.boss, 'chakra', 0) / getattr(self.boss, 'max_chakra', 1) if getattr(self.boss, 'max_chakra', 0) > 0 else 0
+            #     draw_gradient_bar(render_surface, boss_bar_x + 10, 70, 200, 14, boss_ch_ratio, border_color=(30, 60, 120))
+            #     boss_ch_text = font_small.render(f"{getattr(self.boss, 'chakra', 0)} / {getattr(self.boss, 'max_chakra', 0)}", True, WHITE)
+            #     render_surface.blit(boss_ch_text, (boss_bar_x + 55, 70))
 
             if self.boss_defeated and not self.boss_active:
                 msg_win = font_med.render("¡JEFE DERROTADO! AVANZA", True, GREEN)
                 render_surface.blit(msg_win, (WIDTH//2 - msg_win.get_width()//2, 100))
 
-            shadow_surf1 = font_small.render("ARMA", True, BLACK)
-            shadow_surf2 = font_med.render("KUNAI ∞", True, BLACK)
-            weapon_surf1 = font_small.render("ARMA", True, WHITE)
-            weapon_surf2 = font_med.render("KUNAI ∞", True, YELLOW)
-            render_surface.blit(shadow_surf1, (WIDTH - 150 + offset, 20 + offset))
-            render_surface.blit(shadow_surf2, (WIDTH - 180 + offset, 40 + offset))
-            render_surface.blit(weapon_surf1, (WIDTH - 150, 20))
-            render_surface.blit(weapon_surf2, (WIDTH - 180, 40))
+            # Contenedor 1: ARMA y RASENGAN
+            box1_x = WIDTH - 200
+            box1_y = 10
+            box1_width = 180
+            box1_height = 80 # Ajustar altura
+            pygame.draw.rect(render_surface, (190, 150, 90), (box1_x, box1_y, box1_width, box1_height), border_radius=10)
+            pygame.draw.rect(render_surface, (130, 95, 50), (box1_x + 3, box1_y + 3, box1_width - 6, box1_height - 6), border_radius=8)
+            
+            # Texto ARMA
+            arma_text = font_small.render("ARMA", True, (60, 40, 20))
+            render_surface.blit(arma_text, (box1_x + box1_width // 2 - arma_text.get_width() // 2, box1_y + 5))
 
+            # Texto RASENGAN (R)
             rasengan_label = font_small.render("RASENGAN (R)", True, WHITE)
-            render_surface.blit(rasengan_label, (WIDTH - 180, 70))
-            if self.player.chakra >= 30: rasengan_ready = font_small.render("30 CHAKRA", True, (56, 189, 248))
-            else: rasengan_ready = font_small.render("SIN CHAKRA", True, RED)
-            render_surface.blit(rasengan_ready, (WIDTH - 130, 88))
+            render_surface.blit(rasengan_label, (box1_x + box1_width // 2 - rasengan_label.get_width() // 2, box1_y + 30))
+
+            # Contenedor 2: KUNAI y CHAKRA STATUS
+            box2_x = WIDTH - 200
+            box2_y = box1_y + box1_height + 5 # Debajo del primer cuadro, con 5px de separación
+            box2_width = 180
+            box2_height = 80 # Ajustar altura
+            pygame.draw.rect(render_surface, (190, 150, 90), (box2_x, box2_y, box2_width, box2_height), border_radius=10)
+            pygame.draw.rect(render_surface, (130, 95, 50), (box2_x + 3, box2_y + 3, box2_width - 6, box2_height - 6), border_radius=8)
+
+            # Texto KUNAI ∞
+            kunai_text = font_small.render("KUNAI ∞", True, WHITE) # font_small, blanco
+            render_surface.blit(kunai_text, (box2_x + box2_width // 2 - kunai_text.get_width() // 2, box2_y + 5))
+
+            # Texto 30 CHAKRA / SIN CHAKRA
+            if self.player.chakra >= 30:
+                rasengan_ready = font_small.render("30 CHAKRA", True, WHITE) # font_small, blanco
+            else:
+                rasengan_ready = font_small.render("SIN CHAKRA", True, WHITE) # font_small, blanco
+            render_surface.blit(rasengan_ready, (box2_x + box2_width // 2 - rasengan_ready.get_width() // 2, box2_y + 30))
 
             if self.level_message_timer > 0:
                 shadow = font_large.render(f"NIVEL {self.level}: {self.level_message}", True, BLACK)
@@ -1097,8 +1247,9 @@ class Game:
                 self.level_message_timer -= 1
 
         if self.state == 'START':
-            if self.start_image: render_surface.blit(self.start_image, (0, 0))
-            else: render_surface.fill(BLACK)
+            # if self.start_image: render_surface.blit(self.start_image, (0, 0))
+            # else: 
+            render_surface.fill(BLACK)
             
             if (pygame.time.get_ticks() // 500) % 2 == 0:
                 start_txt = font_med.render("PRESIONA ESPACIO PARA INICIAR", True, YELLOW)
@@ -1128,17 +1279,23 @@ def main():
     running = True
     
     while running:
-        clock.tick(60)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    if game.state == 'START' or game.state == 'GAMEOVER':
-                        game.reset()
-        game.update()
-        game.draw(screen)
-        pygame.display.flip()
+        try:
+            clock.tick(60)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if game.state == 'START' or game.state == 'GAMEOVER':
+                            game.reset()
+            game.update()
+            game.draw(screen)
+            pygame.display.flip()
+        except Exception as e:
+            print(f"ERROR: {e}")
+            import traceback
+            traceback.print_exc()
+            running = False
 
     pygame.quit()
     sys.exit()
