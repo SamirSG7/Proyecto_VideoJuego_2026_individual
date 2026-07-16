@@ -76,20 +76,21 @@ except Exception as e:
     print(f"error al conectar con firebase: {e}")
     db = None
 
-# Definición de Colores (RGB)
+# Definición de Colores
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 SKY_BLUE = (125, 211, 252)
 DIRT_BROWN = (180, 83, 9)
 DIRT_DARK = (146, 64, 14)
 MOUNTAIN_GRAY = (148, 163, 184)
-RED = (239, 68, 68)
+RED = (255, 0, 0)
+RED_DARK = (115, 0, 0)
 YELLOW = (253, 224, 71)
 YELLOW_DARK = (245, 158, 11)
 GREEN = (101, 163, 13)
 GRAY_DARK = (55, 65, 81)
 GRAY_LIGHT = (156, 163, 175)
-PURPLE = (128, 0, 128)  # Nuevo
+PURPLE = (128, 0, 128)
 
 # Fuentes
 try:
@@ -147,7 +148,7 @@ class Particle:
 def create_explosion(x, y, color_type, count, particles_list):
     for _ in range(count):
         if color_type == 'explosion':
-            color = random.choice([RED, YELLOW, YELLOW_DARK, GRAY_DARK])
+            color = random.choice([RED, RED_DARK, RED, RED_DARK])
         else:
             color = color_type
         life = 30 + random.random() * 20
@@ -897,6 +898,27 @@ class Game:
             print(f"Error cargando la imagen de portada: {e}")
             self.start_image = None
 
+        try:
+            img_barra = pygame.image.load("sprite/barra.png").convert_alpha()
+            self.barra_hud = pygame.transform.scale(img_barra, (270, 65))
+        except Exception as e:
+            print(f"Error cargando barra.png: {e}")
+            self.barra_hud = None
+
+        try:
+            img_tabla = pygame.image.load("sprite/tabla2.png").convert_alpha()
+            self.tabla_hud = pygame.transform.scale(img_tabla, (170, 120))
+        except Exception as e:
+            print(f"Error cargando tabla.png: {e}")
+            self.tabla_hud = None
+
+        try:
+            img_barrajefe = pygame.image.load("sprite/barrajefe.png").convert_alpha()
+            self.barra_jefe = pygame.transform.scale(img_barrajefe, (470, 50))
+        except Exception as e:
+            print(f"Error cargando barrajefe.png: {e}")
+            self.barra_jefe = None
+
     def load_level(self, level_num):
         self.level = level_num
 
@@ -1184,33 +1206,44 @@ class Game:
             for p in self.particles:
                 p.draw(render_surface, self.camera_x)
 
+            # --- DIBUJAR HUD (Interfaz) ---
             shadow_score = font_med.render(f"PUNTOS: {self.score}", True, BLACK)
             score_surf = font_med.render(f"PUNTOS: {self.score}", True, YELLOW)
             offset = 2
             render_surface.blit(shadow_score, (20 + offset, 20 + offset))
             render_surface.blit(score_surf, (20, 20))
+            
+            if self.barra_hud:
+                render_surface.blit(self.barra_hud, (10, 55))
 
-            pygame.draw.rect(render_surface, WHITE, (20, 60, 204, 24), 2)
-            pygame.draw.rect(render_surface, (127, 29, 29), (22, 62, 200, 20))
-            hp_width = int((self.player.hp / self.player.max_hp) * 200)
-            if hp_width > 0:
-                pygame.draw.rect(render_surface, RED, (22, 62, hp_width, 20))
-
-            pygame.draw.rect(render_surface, WHITE, (20, 90, 204, 24), 2)
-            pygame.draw.rect(render_surface, (15, 23, 42), (22, 92, 200, 20))
-            ch_width = int((self.player.chakra / self.player.max_chakra) * 200)
-            if ch_width > 0:
-                pygame.draw.rect(render_surface, (14, 165, 233), (22, 92, ch_width, 20))
-
-            # Nuevo: Renderizado de barra de vitalidad del jefe final en el HUD
+            #pygame.draw.rect(render_surface, WHITE, (20, 60, 144,16), 2) 
+            pygame.draw.rect(render_surface, (127, 29, 29), (111, 69, 137, 16)) 
+            hp_width = int((self.player.hp / self.player.max_hp) * 137)
+            if hp_width > 0: pygame.draw.rect(render_surface, GREEN, (111, 69, hp_width, 16)) 
+                
+            #pygame.draw.rect(render_surface, WHITE, (20, 90, 204, 24), 2)
+            pygame.draw.rect(render_surface, (15, 23, 42), (111, 93, 137, 16)) 
+            ch_width = int((self.player.chakra / self.player.max_chakra) * 137)
+            if ch_width > 0: pygame.draw.rect(render_surface, (14, 165, 233), (111, 93, ch_width, 16))
+                
+            # HUD Jefe Final
             if self.boss_active and self.boss:
-                pygame.draw.rect(render_surface, WHITE, (WIDTH // 2 - 250, 30, 500, 24), 2)
-                pygame.draw.rect(render_surface, (60, 10, 10), (WIDTH // 2 - 248, 32, 496, 20))
-                boss_hp_w = int((self.boss.hp / self.boss.max_hp) * 496)
-                if boss_hp_w > 0: pygame.draw.rect(render_surface, RED, (WIDTH // 2 - 248, 32, boss_hp_w, 20))
-                font_boss = pygame.font.Font(None, 25)
+                if self.barra_jefe:
+                    render_surface.blit(self.barra_jefe, (WIDTH//2 - 198, 16))
+
+                #pygame.draw.rect(render_surface, WHITE, (WIDTH//2 - 200, 30, 450, 24), 2)
+                pygame.draw.rect(render_surface, (60, 10, 10), (WIDTH//2 - 150, 32, 387, 20))
+                boss_hp_w = int((self.boss.hp / self.boss.max_hp) * 387)
+                if boss_hp_w > 0: pygame.draw.rect(render_surface, RED, (WIDTH//2 - 150, 32, boss_hp_w, 20))
+                
+                font_boss2 = pygame.font.Font(None, 30)  # Tamaño 50
+                boss_name2 = font_boss2.render(self.boss.name, True, BLACK)
+                render_surface.blit(boss_name2, (453, 63))
+
+                font_boss = pygame.font.Font(None, 30)  # Tamaño 50
                 boss_name = font_boss.render(self.boss.name, True, WHITE)
-                render_surface.blit(boss_name, (WIDTH // 2 - boss_name.get_width() // 2, 60))
+                render_surface.blit(boss_name, (450, 60))
+
 
             # Nuevo: Alertas visuales de liberación de camino al derrotar un boss
             if self.boss_defeated and not self.boss_active:
@@ -1220,6 +1253,9 @@ class Game:
                 pos_y = 150
                 render_surface.blit(shadow, (pos_x + 3, pos_y + 3))
                 render_surface.blit(msg, (pos_x, pos_y))
+
+            if self.tabla_hud:
+                render_surface.blit(self.tabla_hud, (WIDTH - 200, 5))
 
             shadow_surf1 = font_small.render("ARMA", True, BLACK)
             shadow_surf2 = font_med.render("KUNAI ∞", True, BLACK)
@@ -1237,7 +1273,7 @@ class Game:
                 rasengan_ready = font_small.render("30 CHAKRA", True, (56, 189, 248))
             else:
                 rasengan_ready = font_small.render("SIN CHAKRA", True, RED)
-            render_surface.blit(rasengan_ready, (WIDTH - 130, 88))
+            render_surface.blit(rasengan_ready, (WIDTH - 160, 88))
 
             if self.level_message_timer > 0:
                 shadow = font_large.render(f"NIVEL {self.level}: {self.level_message}", True, BLACK)
