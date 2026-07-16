@@ -883,8 +883,7 @@ class Game:
         self.floor_image = None
 
         try:
-            self.start_image = None # Comentado temporalmente
-            # self.start_image = pygame.transform.scale(pygame.image.load("poortada.png").convert(), (WIDTH, HEIGHT))
+            self.start_image = pygame.transform.scale(pygame.image.load("sprite/poortada.png").convert(), (WIDTH, HEIGHT))
         except:
             self.start_image = None
 
@@ -1247,9 +1246,9 @@ class Game:
                 self.level_message_timer -= 1
 
         if self.state == 'START':
-            # if self.start_image: render_surface.blit(self.start_image, (0, 0))
-            # else: 
-            render_surface.fill(BLACK)
+            if self.start_image: render_surface.blit(self.start_image, (0, 0))
+            else: 
+                render_surface.fill(BLACK)
             
             if (pygame.time.get_ticks() // 500) % 2 == 0:
                 start_txt = font_med.render("PRESIONA ESPACIO PARA INICIAR", True, YELLOW)
