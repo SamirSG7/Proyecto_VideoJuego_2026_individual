@@ -21,6 +21,32 @@
 
 ---
 
+## Instalación
+
+**Requisitos:** Python 3.8+ y pip.
+
+```bash
+# Clonar el repositorio
+git clone <repo-url>
+cd Proyecto_VideoJuego_2026_individual
+
+# Instalar dependencias
+pip install -r requirements.txt
+
+# Ejecutar el juego
+python juegofinal.py
+```
+
+**En WSL / Linux (Debian/Ubuntu):**
+
+```bash
+sudo apt install python3 python3-pip
+pip3 install -r requirements.txt
+python3 juegofinal.py
+```
+
+---
+
 ## Diseño de Niveles Escalable
 **Uso de Diccionarios para Configuración:**
 * En lugar de "quemar" (hardcodear) los datos de cada nivel, se utilizó un diccionario global `LEVELS`.
